@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+option go_package = "github.com/sakti/o11ygo/api";
+
+package api;
+
+service Authsvc {
+	rpc Enforce(EnforceRequest) returns (EnforceReply) {}
+	rpc CreateToken(CreateTokenRequest) returns (CreateTokenReply){}
+}
+
+message EnforceRequest {
+	string token = 1;
+}
+
+message EnforceReply {
+	bool allowed = 1;
+}
+
+message CreateTokenRequest {}
+message CreateTokenReply{
+	string token = 1;
+}

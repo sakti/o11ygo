@@ -1,0 +1,56 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	stdout "go.opentelemetry.io/otel/exporter/stdout/stdoutmetric"
+	"go.opentelemetry.io/otel/metric/global"
+	controller "go.opentelemetry.io/otel/sdk/metric/controller/basic"
+	processor "go.opentelemetry.io/otel/sdk/metric/processor/basic"
+	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
+
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
+)
+
+func initMeter() *controller.Controller {
+	exporter, err := stdout.New(stdout.WithPrettyPrint())
+	if err != nil {
+		log.Panicf("failed to initialize metric stdout exporter %v", err)
+	}
+	pusher := controller.New(
+		processor.New(
+			simple.NewWithInexpensiveDistribution(),
+			exporter,
+		),
+		controller.WithExporter(exporter),
+	)
+	pusher.Start(context.Background()) //nolint:errcheck
+	global.SetMeterProvider(pusher.MeterProvider())
+	return pusher
+}
+
+func main() {
+	defer handleErr(initMeter().Stop(context.Background()))
+
+	if err := runtime.Start(
+		runtime.WithMinimumReadMemStatsInterval(time.Second),
+	); err != nil {
+		panic(err)
+	}
+
+	stopChan := make(chan os.Signal, 1)
+	signal.Notify(stopChan, syscall.SIGTERM, syscall.SIGINT)
+	<-stopChan
+}
+
+func handleErr(err error) {
+	if err != nil {
+		fmt.Println("Encountered error: ", err.Error())
+	}
+}
