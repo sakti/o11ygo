@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 
 	"github.com/sakti/o11ygo/api"
 	"github.com/sakti/o11ygo/pkg/config"
@@ -80,17 +82,26 @@ func main() {
 
 	// tracing
 	shutdown := tracing.SetupTracing(serviceName, conf.OTLPEndpoint)
-	defer shutdown()
 
 	// run service
-	switch serviceName {
-	case "auth":
-		run_auth(conf)
-	case "adder":
-		run_adder(conf)
-	case "multiply":
-		run_multiply(conf)
-	default:
-		log.Panic("invalid service name")
-	}
+	go func() {
+		switch serviceName {
+		case "auth":
+			run_auth(conf)
+		case "adder":
+			run_adder(conf)
+		case "multiply":
+			run_multiply(conf)
+		default:
+			log.Panic("invalid service name")
+		}
+	}()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	<-c
+	// cleanup
+	log.Println("shutting down")
+	shutdown()
 }
